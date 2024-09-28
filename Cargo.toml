@@ -1,0 +1,12 @@
+[package]
+name = "happy-synth"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+rand = "0.8.5"
+slotmap = "1.0.7"
+
+[dev-dependencies]
+cpal = "0.15.3"
