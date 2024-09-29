@@ -4,7 +4,7 @@ use cpal::{
 };
 use happy_synth::AdsrEnvelope;
 
-const BPM: f32 = 97.0;
+const BPM: f32 = 194.0;
 
 fn main() {
     let a4 = 440.0;
@@ -54,7 +54,6 @@ fn main() {
         .map(|(note, start)| (note, start * beat_time))
         .collect::<Vec<_>>();
 
-    dbg!(&score);
     let duration = score.last().unwrap().1;
     eprintln!("Score duration: {}", duration);
 
@@ -73,6 +72,10 @@ fn main() {
 
     // Synth settings
     let sample_rate = config.sample_rate().0 as f32;
+    println!("Sample rate: {}", sample_rate);
+    let channel_count = config.channels() as usize;
+    println!("Channels: {}", channel_count);
+
     let cfg = happy_synth::Config {
         sample_rate,
         ..Default::default()
@@ -103,8 +106,9 @@ fn main() {
                     d.fill(Sample::EQUILIBRIUM);
 
                     let samples_per_1ms = (sample_rate / 1000.0) as usize;
+                    let actual_sample_per_1ms = samples_per_1ms * channel_count;
                     // Chop d into 1ms chunks so that we can update the note state
-                    for ch in d.chunks_mut(samples_per_1ms) {
+                    for ch in d.chunks_mut(actual_sample_per_1ms) {
                         // Update note state
                         // Check if we need to switch to the next note
                         if next_note < score.len() && time >= score[next_note].1 {
@@ -119,9 +123,21 @@ fn main() {
                             next_note += 1;
                         }
 
+                        // Use the first channel to render the sound
+                        let first_ch = &mut ch[0..samples_per_1ms];
                         synth.bookkeeping();
-                        synth.render(ch);
-                        time += delta_t * ch.len() as f32;
+                        synth.render(first_ch);
+
+                        // Copy the first channel to the rest of the channels
+                        // work in reverse order to avoid overwriting
+                        for i in (0..samples_per_1ms).rev() {
+                            let start_idx = i * channel_count;
+                            for j in 0..channel_count {
+                                ch[start_idx + j] = ch[i]
+                            }
+                        }
+
+                        time += delta_t * samples_per_1ms as f32;
                     }
                 }
             },
