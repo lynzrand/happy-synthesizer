@@ -80,7 +80,7 @@ impl AdsrEnvelope {
             }
             NoteState::Released(time) => {
                 if time < self.release {
-                    1.0 - time / self.release
+                    (1.0 - time / self.release) * self.sustain
                 } else {
                     0.0
                 }
