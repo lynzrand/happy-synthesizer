@@ -1,18 +1,18 @@
-use happy_synth::{AdsrEnvelope, Config, SineOscillator, Synth};
+use happy_synth::{osc::sine::SineOscillator, AdsrEnvelope, Config, Synth};
 
 fn main() {
     let cfg = Config {
         sample_rate: 4000.0,
         ..Default::default()
     };
-    let osc = SineOscillator::default();
+    let osc = SineOscillator;
     let adsr = AdsrEnvelope {
         attack: 0.01,
         decay: 0.01,
         sustain: 0.5,
         release: 0.1,
     };
-    let mut synth = Synth::new(cfg, Box::new(osc), adsr, 256);
+    let mut synth = Synth::new(cfg, osc, adsr, 256);
 
     let mut out_buf = vec![0.0f32; 256];
 

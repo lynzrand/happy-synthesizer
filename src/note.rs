@@ -4,7 +4,7 @@ use slotmap::SlotMap;
 
 use crate::AdsrEnvelope;
 
-pub struct Note {
+pub struct Note<State> {
     /// The frequency of the note.
     pub freq: f32,
     /// The amplitude of the note.
@@ -13,25 +13,27 @@ pub struct Note {
     pub time: f32,
     /// Whether the node is still being held.
     pub held: bool,
+    /// The state of the oscillator.
+    pub state: State,
 }
 
 slotmap::new_key_type! {
     pub struct NoteId;
 }
 
-struct ListEntry {
-    it: Note,
+struct ListEntry<St> {
+    it: Note<St>,
     next: Option<NoteId>,
     prev: Option<NoteId>,
 }
 
-pub struct NoteList {
+pub struct NoteList<St> {
     head: Option<NoteId>,
     tail: Option<NoteId>,
-    entries: SlotMap<NoteId, ListEntry>,
+    entries: SlotMap<NoteId, ListEntry<St>>,
 }
 
-impl NoteList {
+impl<St> NoteList<St> {
     pub fn new(cap: usize) -> Self {
         NoteList {
             head: None,
@@ -40,7 +42,7 @@ impl NoteList {
         }
     }
 
-    pub fn add(&mut self, note: Note) -> NoteId {
+    pub fn add(&mut self, note: Note<St>) -> NoteId {
         // Evict the oldest note if the list is full.
         if self.entries.len() == self.entries.capacity() {
             let key = self.head.unwrap();
@@ -64,11 +66,11 @@ impl NoteList {
         key
     }
 
-    pub fn get(&self, key: NoteId) -> Option<&Note> {
+    pub fn get(&self, key: NoteId) -> Option<&Note<St>> {
         self.entries.get(key).map(|entry| &entry.it)
     }
 
-    pub fn get_mut(&mut self, key: NoteId) -> Option<&mut Note> {
+    pub fn get_mut(&mut self, key: NoteId) -> Option<&mut Note<St>> {
         self.entries.get_mut(key).map(|entry| &mut entry.it)
     }
 
@@ -88,7 +90,7 @@ impl NoteList {
         }
     }
 
-    pub fn filter(&mut self, f: impl Fn(&Note) -> bool) {
+    pub fn filter(&mut self, f: impl Fn(&Note<St>) -> bool) {
         let mut key = self.head;
         while let Some(k) = key {
             let next = self.entries[k].next;
@@ -106,7 +108,7 @@ impl NoteList {
         }
     }
 
-    pub fn notes_mut(&mut self) -> impl Iterator<Item = &mut Note> {
+    pub fn notes_mut(&mut self) -> impl Iterator<Item = &mut Note<St>> {
         self.entries.values_mut().map(|entry| &mut entry.it)
     }
 }
