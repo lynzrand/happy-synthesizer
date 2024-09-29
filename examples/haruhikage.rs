@@ -109,6 +109,8 @@ fn main() {
                     let actual_sample_per_1ms = samples_per_1ms * channel_count;
                     // Chop d into 1ms chunks so that we can update the note state
                     for ch in d.chunks_mut(actual_sample_per_1ms) {
+                        let sample_count = ch.len() / channel_count;
+
                         // Update note state
                         // Check if we need to switch to the next note
                         if next_note < score.len() && time >= score[next_note].1 {
@@ -124,20 +126,20 @@ fn main() {
                         }
 
                         // Use the first channel to render the sound
-                        let first_ch = &mut ch[0..samples_per_1ms];
+                        let first_ch = &mut ch[0..sample_count];
                         synth.bookkeeping();
                         synth.render(first_ch);
 
                         // Copy the first channel to the rest of the channels
                         // work in reverse order to avoid overwriting
-                        for i in (0..samples_per_1ms).rev() {
+                        for i in (0..sample_count).rev() {
                             let start_idx = i * channel_count;
                             for j in 0..channel_count {
                                 ch[start_idx + j] = ch[i]
                             }
                         }
 
-                        time += delta_t * samples_per_1ms as f32;
+                        time += delta_t * sample_count as f32;
                     }
                 }
             },
