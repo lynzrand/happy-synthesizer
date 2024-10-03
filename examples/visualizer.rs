@@ -1,4 +1,4 @@
-use happy_synth::{osc::sine::SineOscillator, AdsrEnvelope, Config, Synth};
+use happy_synth::{envelope::adsr::AdsrEnvelope, osc::sine::SineOscillator, Config, Synth};
 
 fn main() {
     let cfg = Config {

@@ -2,7 +2,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Sample,
 };
-use happy_synth::AdsrEnvelope;
+use happy_synth::envelope::adsr::{AdsrEnvelope, ExponentialAdsrEnvelope};
 
 const BPM: f32 = 194.0;
 
@@ -75,6 +75,8 @@ fn main() {
     println!("Sample rate: {}", sample_rate);
     let channel_count = config.channels() as usize;
     println!("Channels: {}", channel_count);
+    let buffer_size = config.buffer_size();
+    println!("Buffer size: {:?}", buffer_size);
 
     let cfg = happy_synth::Config {
         sample_rate,
@@ -84,9 +86,16 @@ fn main() {
         attack: 0.01,
         decay: 0.5,
         sustain: 0.6,
-        release: 0.2,
+        release: 0.1,
     };
-    let osc = happy_synth::osc::saw::SawOscillator;
+    let adsr = ExponentialAdsrEnvelope {
+        end_x: 10.0,
+        props: adsr,
+    };
+    // let osc = happy_synth::osc::square::SquareOscillator;
+    let osc = happy_synth::osc::harmonic::HarmonicOscillator::new(&[
+        1.0, 0.5, 0.33, 0.25, 0.18, 0.14, 0.125, 0.11, 0.1,
+    ]);
     let mut synth = happy_synth::Synth::new(cfg, osc, adsr, 256);
 
     eprintln!("Synth created");
