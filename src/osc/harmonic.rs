@@ -10,11 +10,11 @@ struct TableEntry {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct WaveTableOscillator {
+pub struct HarmonicOscillator {
     table: Vec<TableEntry>,
 }
 
-impl WaveTableOscillator {
+impl HarmonicOscillator {
     pub fn new(amps: &[f32]) -> Self {
         let mut table = Vec::with_capacity(amps.len());
         for amp in amps {
@@ -28,19 +28,19 @@ impl WaveTableOscillator {
 }
 
 #[derive(Debug, Clone)]
-pub struct WaveTableOscillatorState {
+pub struct HarmonicOscillatorState {
     states: Vec<SineOscillatorState>,
 }
 
-impl Oscillator for WaveTableOscillator {
-    type State = WaveTableOscillatorState;
+impl Oscillator for HarmonicOscillator {
+    type State = HarmonicOscillatorState;
 
     fn create_state(&self) -> Self::State {
         let mut state = Vec::with_capacity(self.table.len());
         for _ in &self.table {
             state.push(SineOscillatorState::default());
         }
-        WaveTableOscillatorState { states: state }
+        HarmonicOscillatorState { states: state }
     }
 
     fn fill_samples(
