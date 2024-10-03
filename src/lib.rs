@@ -1,12 +1,10 @@
+pub mod envelope;
 mod note;
 pub mod osc;
 
-use std::collections::VecDeque;
-
+use envelope::Envelope;
 use note::Note;
 use osc::Oscillator;
-use rand::Rng;
-use slotmap::SlotMap;
 
 pub struct Config {
     /// The sample rate of the audio stream, in Hz.
@@ -32,79 +30,7 @@ impl Default for Config {
     }
 }
 
-/// An ADSR envelope configuration. All times are in seconds.
-///
-/// ```plaintext
-/// amplitude
-/// ^
-/// |     /|\
-/// |    / | \
-/// |   /  |  +---------------+\ -  -  -  -  -  -  -  +
-/// |  /   |  |               | \                     | Sustain
-/// +-+----+--+---------------+--+------> time  -  -  +
-///   |    |  |               +--+ Release
-///   |    |  |               (note is released)
-///   |    +--+ Decay
-/// t=0----+ Attack
-/// ```
-pub struct AdsrEnvelope {
-    /// The time it takes for the envelope to reach its maximum amplitude.
-    pub attack: f32,
-    /// The time it takes for the envelope to reach the sustain amplitude.
-    pub decay: f32,
-    /// The amplitude of the envelope while the note is held. 1 is the default amplitude.
-    pub sustain: f32,
-    /// The time it takes for the envelope to reach 0 after the note is released.
-    pub release: f32,
-}
-
-pub enum NoteState {
-    Holding(f32),
-    Released(f32),
-}
-
-impl AdsrEnvelope {
-    pub fn sample(&self, state: NoteState) -> f32 {
-        match state {
-            NoteState::Holding(time) => {
-                if time < 0.0 {
-                    0.0
-                } else if time < self.attack {
-                    time / self.attack
-                } else if time < self.attack + self.decay {
-                    let decay_time = time - self.attack;
-                    1.0 + (self.sustain - 1.0) * (decay_time / self.decay)
-                } else {
-                    self.sustain
-                }
-            }
-            NoteState::Released(time) => {
-                if time < self.release {
-                    (1.0 - time / self.release) * self.sustain
-                } else {
-                    0.0
-                }
-            }
-        }
-    }
-
-    pub fn immediate() -> Self {
-        Self {
-            attack: 0.0,
-            decay: 0.0,
-            sustain: 1.0,
-            release: 0.0,
-        }
-    }
-}
-
-impl Default for AdsrEnvelope {
-    fn default() -> Self {
-        Self::immediate()
-    }
-}
-
-pub struct Synth<Osc: Oscillator> {
+pub struct Synth<Osc: Oscillator, Env> {
     /// The configuration of the synth.
     cfg: Config,
 
@@ -112,14 +38,14 @@ pub struct Synth<Osc: Oscillator> {
     osc: Osc,
 
     /// The ADSR envelope configuration.
-    adsr: AdsrEnvelope,
+    adsr: Env,
 
     /// Notes currently being played.
     notes: note::NoteList<Osc::State>,
 }
 
-impl<Osc: Oscillator> Synth<Osc> {
-    pub fn new(cfg: Config, osc: Osc, adsr: AdsrEnvelope, max_notes: usize) -> Self {
+impl<Osc: Oscillator, Env: Envelope> Synth<Osc, Env> {
+    pub fn new(cfg: Config, osc: Osc, adsr: Env, max_notes: usize) -> Self {
         Self {
             cfg,
             osc,
@@ -157,11 +83,7 @@ impl<Osc: Oscillator> Synth<Osc> {
                 .fill_samples(&mut note.state, &mut temp_buf, delta_t, note.freq, note.amp);
             for (i, (out, sample)) in buffer.iter_mut().zip(temp_buf.iter()).enumerate() {
                 let curr_time = i as f32 * delta_t;
-                let amp = self.adsr.sample(if note.held {
-                    NoteState::Holding(note.time + curr_time)
-                } else {
-                    NoteState::Released(note.time + curr_time)
-                });
+                let amp = self.adsr.sample(note.held_state(curr_time));
                 *out += *sample * amp;
             }
             note.time += total_time;
@@ -169,6 +91,7 @@ impl<Osc: Oscillator> Synth<Osc> {
     }
 
     pub fn bookkeeping(&mut self) {
-        self.notes.filter(|n| n.held || n.time < self.adsr.release);
+        self.notes
+            .filter(|n| !self.adsr.note_ended(n.held_state(0.0)));
     }
 }

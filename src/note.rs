@@ -2,8 +2,6 @@
 
 use slotmap::SlotMap;
 
-use crate::AdsrEnvelope;
-
 pub struct Note<State> {
     /// The frequency of the note.
     pub freq: f32,
@@ -15,6 +13,21 @@ pub struct Note<State> {
     pub held: bool,
     /// The state of the oscillator.
     pub state: State,
+}
+
+pub enum NoteState {
+    Holding(f32),
+    Released(f32),
+}
+
+impl<St> Note<St> {
+    pub fn held_state(&self, t_offset: f32) -> NoteState {
+        if self.held {
+            NoteState::Holding(self.time + t_offset)
+        } else {
+            NoteState::Released(self.time + t_offset)
+        }
+    }
 }
 
 slotmap::new_key_type! {
@@ -66,10 +79,6 @@ impl<St> NoteList<St> {
         key
     }
 
-    pub fn get(&self, key: NoteId) -> Option<&Note<St>> {
-        self.entries.get(key).map(|entry| &entry.it)
-    }
-
     pub fn get_mut(&mut self, key: NoteId) -> Option<&mut Note<St>> {
         self.entries.get_mut(key).map(|entry| &mut entry.it)
     }
@@ -98,13 +107,6 @@ impl<St> NoteList<St> {
                 self.remove(k);
             }
             key = next;
-        }
-    }
-
-    pub fn release(&mut self, key: NoteId) {
-        if let Some(entry) = self.entries.get_mut(key) {
-            entry.it.held = false;
-            entry.it.time = 0.0;
         }
     }
 
